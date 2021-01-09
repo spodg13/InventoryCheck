@@ -18,8 +18,8 @@ def check_item_in_stock(page_html):
     return len(out_of_stock_divs) != 0
 
 def setup_twilio_client():
-    account_sid = secrets.TWILIO_ACCOUNT_SID
-    auth_token = secrets.TWILIO_AUTH_TOKEN
+    account_sid = secrets.ACCOUNT_SID
+    auth_token = secrets.AUTH_TOKEN
     return Client(account_sid, auth_token)
 
 def send_notification():
