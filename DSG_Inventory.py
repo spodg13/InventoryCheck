@@ -29,10 +29,9 @@ def check_item_in_stock(page_html):
 
 def check_conn():
     url = "http://www.dickssportinggoods.com"
+    global current_time
     try:
         page = requests.get(url)
-        t = time.localtime()
-        current_time = time.strftime("%b %d %Y, %I:%M:%S %p", t)
         print(page.status_code)
         print(page.reason)
         if page.status_code == 200:
@@ -82,9 +81,8 @@ def check_inventory():
     # Basketball in stock Folsom url ="https://www.dickssportinggoods.com/p/wilson-official-encore-basketball-29-5
     # -19wilancrcmpst295bkb/19wilancrcmpst295bkb?Clearance=false"
     page_html = get_page_html(url)
-    t = time.localtime()
     global Instock
-    current_time = time.strftime("%b %d %Y, %I:%M:%S %p", t)
+    global current_time
     if check_item_in_stock(page_html):
         # send_notification()
         print("Out of Stock")
@@ -104,6 +102,8 @@ def check_inventory():
 schedule.every().day.at("13:13").do(running_reminder)
 
 while True:
+    t = time.localtime()
+    current_time = time.strftime("%b %d %Y, %I:%M:%S %p", t)
     conn = check_conn()
     if conn:
         check_inventory()
