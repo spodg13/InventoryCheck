@@ -27,6 +27,29 @@ def check_item_in_stock(page_html):
     return len(out_of_stock_divs) != 0
 
 
+def check_conn():
+    url = "http://www.dickssportinggoods.com"
+    try:
+        page = requests.get(url)
+        t = time.localtime()
+        current_time = time.strftime("%b %d %Y, %I:%M:%S %p", t)
+        print(page.status_code)
+        print(page.reason)
+        if page.status_code == 200:
+            print('Dick \'s website is online')
+            return True
+        else:
+            print('Dick \'s website is down')
+            msg = 'Dick \'s website is down: ' + current_time
+            send_notification(msg)
+            return False
+    except requests.exceptions.ConnectionError as err:
+        print(err)
+        print('Connection error')
+        msg = 'Connection error: ' + current_time
+        send_notification(msg)
+
+
 def setup_twilio_client():
     twilio_account_sid = os.environ['twilio_account_sid']
     twilio_auth_token = os.environ['twilio_auth_token']
@@ -81,6 +104,13 @@ def check_inventory():
 schedule.every().day.at("13:13").do(running_reminder)
 
 while True:
-    check_inventory()
-    schedule.run_pending()
-    time.sleep(300)  # Wait (seconds) and try again
+    conn = check_conn()
+    if conn:
+        check_inventory()
+        schedule.run_pending()
+        # Time to wait before doing it again
+        time.sleep(300)
+    else:
+        print('Trying again in 60 seconds')
+        time.sleep(60)
+
