@@ -16,9 +16,10 @@ SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 VERIZON_NUMBER = os.getenv("VERIZON_PHONE")
 VERIZON_SMS_ADDRESS = f"{VERIZON_NUMBER}@vtext.com"
 
-last_heartbeat_date = ""
+heartbeat_am_sent_date = ""
+heartbeat_pm_sent_date = ""
 
-def send_verizon_sms(message_body, subject="Jersey Alert"):
+def send_alerts(message_body, subject="Jersey Alert"):
     try:
         msg = MIMEText(message_body)
         msg['From'] = SENDER_EMAIL
@@ -33,21 +34,24 @@ def send_verizon_sms(message_body, subject="Jersey Alert"):
     except Exception as e:
         print(f"❌ Failed to send text alert: {e}")
 
-def check_morning_heartbeat():
-    global last_heartbeat_date
+def check_system_heartbeats():
+    global heartbeat_am_sent_date, heartbeat_pm_sent_date
     current_date = time.strftime('%Y-%m-%d')
-    current_hour = time.strftime('%H')  # Pulls just the hour (e.g., "08")
+    current_hour = time.strftime('%H')  # Pulls just the hour block (e.g., "08")
 
-    # If it is currently anywhere in the 8:00 AM hour block 
-    # AND we haven't already sent a heartbeat text today
-    if current_hour == "08" and last_heartbeat_date != current_date:
-        print("☀️ Sending daily system status text...")
-        send_verizon_sms(
-            "🟢 System online. Nike monitor is actively tracking your sizes!", 
-            subject="Daily Status"
-        )
-        # Lock it down for the rest of the day so it doesn't text you again 15 mins later
-        last_heartbeat_date = current_date
+    # Verify if it is in the 8:00 AM window and has not sent today
+    # ☀️ Morning Check (8:00 AM - 8:59 AM)
+    if current_hour == "08" and heartbeat_am_sent_date != current_date:
+        alert_text = "☀️ Morning System Check: US Soccer monitor is active!"
+        print(f"\n{alert_text}")
+        send_alerts(alert_text)
+        heartbeat_am_sent_date = current_date
+    # 🌙 Evening Check (8:00 PM - 8:59 PM)
+    elif current_hour == "20" and heartbeat_pm_sent_date != current_date:
+        alert_text = "🌙 Evening System Check: US Soccer monitor is active!"
+        print(f"\n{alert_text}")
+        send_alerts(alert_text)
+        heartbeat_pm_sent_date = current_date
 
 async def check_nike_store(browser_context, item_name, product_url, target_size):
     print(f"Analyzing Nike backend pipeline for {item_name} (Size: {target_size.upper()})...")
@@ -81,7 +85,7 @@ async def check_nike_store(browser_context, item_name, product_url, target_size)
             if f'"{target_size.upper()}"' in content and '"available":true' in content:
                 print(f"🎯 Pattern Match Confirmed in static layer for {item_name} Size {target_size.upper()}!")
                 alert = f"🔥 Nike Restock Alert: {item_name} in Size {target_size.upper()} detected active. Link: {product_url}"
-                send_verizon_sms(alert)
+                send_alerts(alert)
                 return
             else:
                 print(f"❌ Size {target_size.upper()} is currently confirmed OUT OF STOCK via structural fallback scan.")
@@ -112,7 +116,7 @@ async def check_nike_store(browser_context, item_name, product_url, target_size)
             if size_confirmed_in_stock:
                 alert = f"🔥 Nike Live Restock: {item_name} in Size {target_size.upper()} IS IN STOCK! Buy now: {product_url}"
                 print(f"✅ Success: {alert}")
-                send_verizon_sms(alert)
+                send_alerts(alert)
             else:
                 print(f"❌ Nike API Verification: {item_name} Size {target_size.upper()} is verified OUT OF STOCK.")
                 
@@ -162,7 +166,7 @@ async def main():
         )
         
         while True:
-            check_morning_heartbeat()
+            check_system_heartbeats()
             print(f"\n--- Checking Nike Store Snapshot [{time.strftime('%I:%M:%S %p')}] ---")
             
             for target in tracking_targets:

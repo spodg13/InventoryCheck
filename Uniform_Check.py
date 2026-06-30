@@ -59,19 +59,28 @@ SMTP_PORT = 587
 # ==========================================
 
 # Initializing here directly above functions keeps it cleanly in Python's global namespace
-last_heartbeat_date = ""
+heartbeat_am_sent_date = ""
+heartbeat_pm_sent_date = ""
 
-def check_morning_heartbeat():
-    global last_heartbeat_date
+def check_system_heartbeats():
+    global heartbeat_am_sent_date, heartbeat_pm_sent_date
     current_date = time.strftime('%Y-%m-%d')
     current_hour = time.strftime('%H')  # Pulls just the hour block (e.g., "08")
 
     # Verify if it is in the 8:00 AM window and has not sent today
-    if current_hour == "08" and last_heartbeat_date != current_date:
-        print("☀️ Sending daily system status text...")
-        # Fixed: Removed the 'subject' parameter because send_alerts() only accepts message_body
-        send_alerts("🟢 System online. US Soccer monitor is actively tracking your sizes!")
-        last_heartbeat_date = current_date
+    # ☀️ Morning Check (8:00 AM - 8:59 AM)
+    if current_hour == "08" and heartbeat_am_sent_date != current_date:
+        alert_text = "☀️ Morning System Check: US Soccer monitor is active!"
+        print(f"\n{alert_text}")
+        send_alerts(alert_text)
+        heartbeat_am_sent_date = current_date
+    # 🌙 Evening Check (8:00 PM - 8:59 PM)
+    elif current_hour == "20" and heartbeat_pm_sent_date != current_date:
+        alert_text = "🌙 Evening System Check: US Soccer monitor is active!"
+        print(f"\n{alert_text}")
+        send_alerts(alert_text)
+        heartbeat_pm_sent_date = current_date
+
 
 def send_alerts(message_body, subject="Stock Alert"):
     """Fires alerts to Twilio and Verizon simultaneously with distinct naming."""
@@ -183,7 +192,7 @@ if __name__ == "__main__":
     
     while True:
         # Run the morning status check
-        check_morning_heartbeat()
+        check_system_heartbeats()
 
         current_time = time.strftime("%Y-%m-%d %H:%M:%S")
         print(f"--- [ Run Cycle: {current_time} ] ---")
