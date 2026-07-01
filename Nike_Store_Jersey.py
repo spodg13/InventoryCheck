@@ -42,13 +42,13 @@ def check_system_heartbeats():
     # Verify if it is in the 8:00 AM window and has not sent today
     # ☀️ Morning Check (8:00 AM - 8:59 AM)
     if current_hour == "08" and heartbeat_am_sent_date != current_date:
-        alert_text = "☀️ Morning System Check: US Soccer monitor is active!"
+        alert_text = "☀️ Morning System Check: Nike store monitor is active!"
         print(f"\n{alert_text}")
         send_alerts(alert_text)
         heartbeat_am_sent_date = current_date
     # 🌙 Evening Check (8:00 PM - 8:59 PM)
     elif current_hour == "20" and heartbeat_pm_sent_date != current_date:
-        alert_text = "🌙 Evening System Check: US Soccer monitor is active!"
+        alert_text = "🌙 Evening System Check: Nike Store monitor is active!"
         print(f"\n{alert_text}")
         send_alerts(alert_text)
         heartbeat_pm_sent_date = current_date
