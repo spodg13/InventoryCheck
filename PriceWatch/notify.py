@@ -25,8 +25,16 @@ end run
 """
 
 
+DEFAULT_LABEL = "🧪 SpodgLabs PriceWatch"
+
+
 def send_text(message: str, dry_run: bool = False) -> bool:
     phone = os.getenv("ALERT_PHONE", "").strip()
+    # First line of every text, so alerts stand out in your own Messages thread.
+    # Set ALERT_LABEL in .env to change it, or ALERT_LABEL= (empty) to turn it off.
+    label = os.getenv("ALERT_LABEL", DEFAULT_LABEL).strip()
+    if label:
+        message = f"{label}\n{message}"
     if dry_run or not phone:
         if not phone and not dry_run:
             print("⚠️  ALERT_PHONE not set in .env - printing instead of texting.")

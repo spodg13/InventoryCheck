@@ -21,6 +21,9 @@ from extract import fetch, size_status  # noqa: E402
 from notify import send_text  # noqa: E402
 
 PAGE = HERE / "ui.html"
+# Logo files the page may load (a fixed list, so no other files can be requested)
+ASSETS = {"/icon.png": ("assets/icon.png", "image/png"),
+          "/spodglabs.svg": ("assets/spodglabs.svg", "image/svg+xml")}
 
 
 def probe(body: dict) -> dict:
@@ -62,7 +65,7 @@ POST = {
     "/api/remove": lambda b: {"removed": pw.remove_item(b["name"], b.get("url"))},
     "/api/search": lambda b: {"results": pw.search_shopify(b["store"], b["query"])},
     "/api/check": check,
-    "/api/test-text": lambda b: {"sent": send_text("✅ PriceWatch test message from your Mac"),
+    "/api/test-text": lambda b: {"sent": send_text("✅ Test message from your Mac"),
                                  "phone": bool(os.getenv("ALERT_PHONE"))},
     "/api/schedule": schedule,
 }
@@ -84,6 +87,9 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path == "/":
             self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
+        elif u.path in ASSETS:
+            path, ctype = ASSETS[u.path]
+            self._send(200, (HERE / path).read_bytes(), ctype)
         elif u.path == "/api/items":
             self._json({"items": pw.watchlist_status(), "every": pw.schedule_status(),
                         "phone": bool(os.getenv("ALERT_PHONE"))})

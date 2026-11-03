@@ -238,7 +238,7 @@ def maybe_digest(con, data, dry_run: bool) -> None:
     today = datetime.now().strftime("%Y-%m-%d")
     if datetime.now().hour < DIGEST_HOUR or state.get("digest") == today or not data["items"]:
         return
-    lines = ["☀️ PriceWatch daily summary"]
+    lines = ["☀️ Daily summary"]
     for it in watchlist_status():
         buyable = [s for s in it["stores"] if s["price"] is not None and s["available"] is not False]
         best = min(buyable, key=lambda s: s["price"]) if buyable else None
@@ -253,12 +253,22 @@ def maybe_digest(con, data, dry_run: bool) -> None:
 
 
 # ================================================================ schedule (launchd)
+DAILY = 1440  # minutes; "once a day" runs at DIGEST_HOUR instead of every 24h from install
+
+
 def install_schedule(every: int) -> str:
     LOGS.mkdir(exist_ok=True)
+    if every >= DAILY:
+        # A fixed time of day; launchd runs it on wake if the Mac was asleep then
+        timing = {"StartCalendarInterval": {"Hour": DIGEST_HOUR, "Minute": 0}}
+        when = f"once a day at {datetime.now().replace(hour=DIGEST_HOUR, minute=0):%-I:%M %p}"
+    else:
+        timing = {"StartInterval": every * 60}
+        when = f"every {every} minutes"
     plist = {
         "Label": LABEL,
         "ProgramArguments": [str(VENV_PYTHON), str(HERE / "pricewatch.py"), "check"],
-        "StartInterval": every * 60,
+        **timing,
         "RunAtLoad": True,
         "WorkingDirectory": str(HERE),
         "StandardOutPath": str(LOGS / "pricewatch.log"),
@@ -269,7 +279,7 @@ def install_schedule(every: int) -> str:
     with open(PLIST, "wb") as f:
         plistlib.dump(plist, f)
     subprocess.run(["launchctl", "load", str(PLIST)], check=True, capture_output=True)
-    return f"Checking every {every} minutes. Log: {LOGS / 'pricewatch.log'}"
+    return f"Checking {when}. Log: {LOGS / 'pricewatch.log'}"
 
 
 def uninstall_schedule() -> str:
@@ -283,7 +293,8 @@ def schedule_status() -> Optional[int]:
     if not PLIST.exists():
         return None
     with open(PLIST, "rb") as f:
-        return plistlib.load(f).get("StartInterval", 0) // 60
+        p = plistlib.load(f)
+    return DAILY if "StartCalendarInterval" in p else p.get("StartInterval", 0) // 60
 
 
 # ================================================================ command line
@@ -380,9 +391,10 @@ def main() -> None:
     p = sub.add_parser("remove"); p.add_argument("name"); p.add_argument("--url")
     p.set_defaults(fn=cmd_remove)
     sub.add_parser("test-text").set_defaults(
-        fn=lambda a: send_text("✅ PriceWatch test message from your Mac"))
+        fn=lambda a: send_text("✅ Test message from your Mac"))
     p = sub.add_parser("install", help="run `check` on a schedule via launchd")
-    p.add_argument("--every", type=int, default=30, help="minutes between checks")
+    p.add_argument("--every", type=int, default=30,
+                   help="minutes between checks (1440 = once a day at DIGEST_HOUR)")
     p.set_defaults(fn=lambda a: print("✅ " + install_schedule(a.every)))
     sub.add_parser("uninstall").set_defaults(fn=lambda a: print(uninstall_schedule()))
 

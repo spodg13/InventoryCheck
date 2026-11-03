@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- SpodgLabs mark: a puzzle piece with a command prompt, blue fading to purple -->
+  <defs>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="0.45" stop-color="#4f6cf7"/>
+      <stop offset="1" stop-color="#8b3ff0"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.28"/>
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(-36 5)">
+    <path id="piece" fill="url(#fade)" d="
+      M 116 144 H 206 Q 222 144 220 130
+      A 48 48 0 1 1 260 130 Q 258 144 274 144
+      H 364 Q 400 144 400 180 V 266 Q 400 282 414 280
+      A 48 48 0 1 1 414 328 Q 400 326 400 342
+      V 428 Q 400 464 364 464 H 116 Q 80 464 80 428
+      V 180 Q 80 144 116 144 Z"/>
+    <path fill="url(#shine)" d="
+      M 116 144 H 206 Q 222 144 220 130
+      A 48 48 0 1 1 260 130 Q 258 144 274 144
+      H 364 Q 400 144 400 180 V 266 Q 400 282 414 280
+      A 48 48 0 1 1 414 328 Q 400 326 400 342
+      V 428 Q 400 464 364 464 H 116 Q 80 464 80 428
+      V 180 Q 80 144 116 144 Z"/>
+    <!-- >_  drawn as shapes so it looks the same everywhere (no font needed) -->
+    <g fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="138,248 206,304 138,360"/>
+      <line x1="236" y1="372" x2="336" y2="372"/>
+    </g>
+  </g>
+</svg>

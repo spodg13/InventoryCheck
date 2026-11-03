@@ -34,6 +34,9 @@ symlink to it. If the environment is missing, `start.sh` rebuilds it.
 - Stores that block automated price checks (Amazon, Walmart, Target, Dick's usually do) say so when you
   paste a link. For Amazon, use camelcamelcamel.com's own alerts.
 
+Every text starts with a `🧪 SpodgLabs PriceWatch` line so it stands out in your Messages thread.
+To change it, set `ALERT_LABEL=...` in `.env`; to turn it off, set `ALERT_LABEL=` (empty). Then run `prices restart`.
+
 ## What triggers a text
 Price drop · price reaches your target · your size back in stock · a summary each morning after 8 AM
 (set `DIGEST_HOUR` in `.env` to change it). The morning summary also confirms the tracker is still running.

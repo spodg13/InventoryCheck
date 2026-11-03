@@ -32,7 +32,7 @@ if [[ -d .venv && ! -L .venv ]]; then
 fi
 [[ -L .venv ]] || ln -s "$VENV" .venv
 
-running_pids() { pgrep -f "python.* $APP" || true; }
+running_pids() { pgrep -f "[Pp]ython.* $APP" || true; }
 
 running_port() {
   local pid
