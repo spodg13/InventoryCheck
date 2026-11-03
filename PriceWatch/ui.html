@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PriceWatch</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏷️</text></svg>">
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #2563eb; --accent-text: #fff; --good: #15803d; --bad: #b91c1c; --warn: #a16207;
+    --good-bg: #dcfce7; --bad-bg: #fee2e2; --warn-bg: #fef3c7; --chip: #f1f5f9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card: #181b22; --text: #e6e8ec; --muted: #9aa1ad; --line: #2a2f3a;
+      --accent: #3b82f6; --good: #4ade80; --bad: #f87171; --warn: #fbbf24;
+      --good-bg: #14532d55; --bad-bg: #7f1d1d55; --warn-bg: #78350f55; --chip: #232733;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: var(--bg); color: var(--text); }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+          padding: 18px; margin-bottom: 16px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input, select { font: inherit; padding: 9px 11px; border: 1px solid var(--line);
+                  border-radius: 8px; background: var(--bg); color: var(--text); min-width: 0; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  #url { flex: 1 1 320px; }
+  button { font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line);
+           background: var(--card); color: var(--text); cursor: pointer; white-space: nowrap; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.link { border: none; background: none; color: var(--muted); padding: 4px 6px; }
+  button.link:hover { color: var(--bad); }
+  button:disabled { opacity: .55; cursor: wait; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .price { font-size: 26px; font-weight: 650; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12.5px; font-weight: 550; }
+  .in { background: var(--good-bg); color: var(--good); }
+  .out { background: var(--bad-bg); color: var(--bad); }
+  .unk { background: var(--chip); color: var(--muted); }
+  .warn { background: var(--warn-bg); color: var(--warn); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 4px; }
+  .chip { padding: 5px 10px; border-radius: 8px; background: var(--chip); border: 1px solid var(--line);
+          font-size: 13px; cursor: pointer; }
+  .chip.sold { text-decoration: line-through; color: var(--muted); }
+  .chip.sel { border-color: var(--accent); outline: 1px solid var(--accent); }
+  .msg { padding: 10px 12px; border-radius: 8px; margin-top: 12px; }
+  .msg.err { background: var(--bad-bg); color: var(--bad); }
+  .msg.ok { background: var(--good-bg); color: var(--good); }
+  .msg.info { background: var(--chip); }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { text-align: left; padding: 7px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
+  th { font-weight: 550; font-size: 12.5px; color: var(--muted); border-top: none; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .item { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
+  .item:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+  .item-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .best { font-weight: 650; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor;
+          border-right-color: transparent; border-radius: 50%; animation: s .8s linear infinite;
+          vertical-align: -2px; margin-right: 6px; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  details summary { cursor: pointer; font-weight: 600; }
+  pre { white-space: pre-wrap; font-size: 13px; background: var(--chip); padding: 10px; border-radius: 8px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🏷️ PriceWatch</h1>
+  <p class="sub">Paste any product link to see if its price can be tracked. Get a text when it drops.</p>
+
+  <!-- Paste a link -->
+  <section class="card">
+    <h2>Check a product</h2>
+    <form id="probeForm" class="row">
+      <input id="url" type="url" placeholder="https://… paste a product page link" required autocomplete="off">
+      <button class="primary" id="probeBtn">Check</button>
+    </form>
+    <div id="probeOut"></div>
+  </section>
+
+  <!-- Watchlist -->
+  <section class="card">
+    <div class="item-head">
+      <h2>Watching</h2>
+      <div class="row">
+        <button id="checkBtn">Check prices now</button>
+      </div>
+    </div>
+    <div id="checkOut"></div>
+    <div id="items"><p class="muted">Loading…</p></div>
+  </section>
+
+  <!-- Search a Shopify store -->
+  <section class="card">
+    <details>
+      <summary>Search a store</summary>
+      <p class="muted small">Works on stores built with Shopify, such as store.ussoccer.com and many team, club and brand shops.
+        For any other store, find the product in your browser and paste its link above.</p>
+      <form id="searchForm" class="row">
+        <input id="sStore" placeholder="store.ussoccer.com" required style="flex:0 1 220px">
+        <input id="sQuery" placeholder="what are you looking for?" required style="flex:1 1 200px">
+        <button>Search</button>
+      </form>
+      <div id="searchOut"></div>
+    </details>
+  </section>
+
+  <!-- Settings -->
+  <section class="card">
+    <h2>Texts &amp; schedule</h2>
+    <div id="phoneMsg"></div>
+    <div class="row" style="margin-top:10px">
+      <label>Check automatically
+        <select id="every">
+          <option value="">Off</option>
+          <option value="15">Every 15 minutes</option>
+          <option value="30">Every 30 minutes</option>
+          <option value="60">Every hour</option>
+          <option value="180">Every 3 hours</option>
+        </select>
+      </label>
+      <button id="testBtn" style="align-self:flex-end">Send a test text</button>
+    </div>
+    <div id="setOut"></div>
+    <p class="muted small" style="margin-bottom:0">You'll get a text when a price drops, hits your target, or your size comes back in stock,
+      plus one summary each morning. Automatic checks keep running when this page is closed.</p>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = p => p == null ? "—" : "$" + Number(p).toFixed(2);
+const stock = a => a === true ? '<span class="pill in">In stock</span>'
+                 : a === false ? '<span class="pill out">Sold out</span>'
+                 : '<span class="pill unk">Stock unknown</span>';
+const spinner = t => `<div class="msg info"><span class="spin"></span>${esc(t)}</div>`;
+const msg = (cls, t) => `<div class="msg ${cls}">${t}</div>`;
+const when = ts => ts ? new Date(ts).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}) : "—";
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} :
+    {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  const data = await r.json().catch(() => ({error: "The PriceWatch server didn't answer. Is it running?"}));
+  if (!r.ok || data.error) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+async function busy(btn, fn) {
+  btn.disabled = true;
+  try { await fn(); } finally { btn.disabled = false; }
+}
+
+// ---------------------------------------------------------------- probe + track
+let probed = null;
+
+$("#probeForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const out = $("#probeOut");
+  busy($("#probeBtn"), async () => {
+    out.innerHTML = spinner("Reading the page… sites that need a real browser can take up to 30 seconds.");
+    try {
+      probed = await api("/api/probe", {url: $("#url").value.trim()});
+      renderProbe();
+    } catch (err) { out.innerHTML = msg("err", esc(err.message)); }
+  });
+});
+
+function renderProbe() {
+  const p = probed, out = $("#probeOut");
+  if (!p.ok) {
+    out.innerHTML = msg("err", `<b>Couldn't read a price from ${esc(p.store)}.</b><br>
+      This store blocks automated price checks (Amazon, Walmart, Target and Dick's usually do).
+      Try the same product at a different store.`);
+    return;
+  }
+  const how = {shopify: "Shopify store data", http: "the page's product data", browser: "a hidden browser (slower)"}[p.method];
+  const sizes = p.sizes.filter(s => s.label);
+  out.innerHTML = `
+    <div style="margin-top:16px">
+      <div class="muted small">${esc(p.store)}</div>
+      <div style="font-weight:600;font-size:17px">${esc(p.title)}</div>
+      <div class="row" style="margin-top:6px"><span class="price">${money(p.price)}</span>${stock(p.available)}</div>
+      <div class="muted small">✅ Trackable, read using ${how}.</div>
+      ${sizes.length ? `<div class="small" style="margin-top:12px">Sizes/options (click to choose):</div>
+        <div class="chips">${sizes.map((s, i) => `<span class="chip ${s.available === false ? "sold" : ""}" data-i="${i}"
+          title="${money(s.price)} · ${s.available === false ? "sold out" : s.available ? "in stock" : "stock unknown"}">${esc(s.label)}</span>`).join("")}</div>
+        ${sizes.every(s => s.available == null) ? '<div class="muted small">This store doesn\'t show per-size stock, so only the price is tracked.</div>' : ""}` : ""}
+      <form id="addForm" class="row" style="margin-top:14px;align-items:flex-end">
+        <label style="flex:1 1 220px">Name
+          <input id="aName" list="names" required value="${esc(p.title)}">
+          <datalist id="names">${p.names.map(n => `<option value="${esc(n)}">`).join("")}</datalist>
+        </label>
+        <label style="flex:0 1 110px">Size (optional)<input id="aSize" placeholder="any"></label>
+        <label style="flex:0 1 140px">Text me below $<input id="aTarget" type="number" step="0.01" min="0" placeholder="any drop"></label>
+        <button class="primary">Track it</button>
+      </form>
+      <div class="muted small" style="margin-top:6px">Tip: to compare stores, track the same product from another store under the same name.
+        Your texts will say which store is cheapest.</div>
+    </div>`;
+  out.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => {
+    out.querySelectorAll(".chip").forEach(x => x.classList.remove("sel"));
+    c.classList.add("sel");
+    $("#aSize").value = sizes[c.dataset.i].label;
+  }));
+  $("#addForm").addEventListener("submit", e => {
+    e.preventDefault();
+    busy(e.submitter, async () => {
+      try {
+        const r = await api("/api/add", {url: p.url, name: $("#aName").value,
+                                          size: $("#aSize").value, target: $("#aTarget").value});
+        out.innerHTML = msg("ok", `Now watching <b>${esc(r.name)}</b> at ${esc(r.store)}: ${money(r.price)}.`);
+        $("#url").value = "";
+        loadItems();
+      } catch (err) { out.insertAdjacentHTML("beforeend", msg("err", esc(err.message))); }
+    });
+  });
+}
+
+// ---------------------------------------------------------------- watchlist
+async function loadItems() {
+  const d = await api("/api/items");
+  $("#every").value = d.every ? String(d.every) : "";
+  if (d.every && !$("#every").value) {  // a custom interval set from the command line
+    $("#every").insertAdjacentHTML("beforeend", `<option value="${d.every}">Every ${d.every} minutes</option>`);
+    $("#every").value = String(d.every);
+  }
+  $("#phoneMsg").innerHTML = d.phone ? ""
+    : msg("err", "No phone number set, so alerts can't be texted yet. Add a line <code>ALERT_PHONE=+1XXXXXXXXXX</code> to the <code>.env</code> file in the InventoryCheck folder, then restart with <code>prices restart</code>.");
+  const box = $("#items");
+  if (!d.items.length) { box.innerHTML = '<p class="muted">Nothing yet. Paste a product link above to start.</p>'; return; }
+  box.innerHTML = d.items.map((it, i) => `
+    <div class="item">
+      <div class="item-head">
+        <div><b>${esc(it.name)}</b>
+          <span class="muted small">${it.size ? "· size " + esc(it.size) : ""} ${it.target ? "· text below " + money(it.target) : ""}</span></div>
+        <div><button class="link" data-hist="${i}">History</button><button class="link" data-rm="${i}">Remove</button></div>
+      </div>
+      <table>
+        <tr><th>Store</th><th>Price</th><th>Stock</th><th>Last checked</th><th></th></tr>
+        ${it.stores.map((s, j) => `<tr>
+          <td><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.store)}</a>
+              ${it.best === s.store && it.stores.length > 1 ? ' <span class="pill in">Cheapest</span>' : ""}</td>
+          <td class="num ${it.best === s.store ? "best" : ""}">${money(s.price)}</td>
+          <td>${stock(s.available)} ${s.failing ? '<span class="pill warn" title="The last check couldn\'t read this page">Last check failed</span>' : ""}</td>
+          <td class="muted small">${when(s.checked)}</td>
+          <td>${it.stores.length > 1 ? `<button class="link" data-rm="${i}" data-url="${j}" title="Stop watching this store">✕</button>` : ""}</td>
+        </tr>`).join("")}
+      </table>
+      <div id="hist${i}"></div>
+    </div>`).join("");
+  box.querySelectorAll("[data-rm]").forEach(b => b.addEventListener("click", async () => {
+    const it = d.items[b.dataset.rm];
+    const url = b.dataset.url !== undefined ? it.stores[b.dataset.url].url : null;
+    if (!confirm(url ? `Stop watching ${it.name} at ${it.stores[b.dataset.url].store}?` : `Stop watching ${it.name}?`)) return;
+    await api("/api/remove", {name: it.name, url});
+    loadItems();
+  }));
+  box.querySelectorAll("[data-hist]").forEach(b => b.addEventListener("click", async () => {
+    const it = d.items[b.dataset.hist], el = $("#hist" + b.dataset.hist);
+    if (el.innerHTML) { el.innerHTML = ""; return; }
+    const h = (await api("/api/history?name=" + encodeURIComponent(it.name))).history.slice(-40).reverse();
+    el.innerHTML = `<table class="small" style="margin-top:8px"><tr><th>When</th><th>Store</th><th>Price</th><th>Stock</th></tr>
+      ${h.map(r => `<tr><td class="muted">${when(r.ts)}</td><td>${esc(r.store)}</td>
+        <td class="num">${r.price == null ? '<span class="muted">couldn\'t read</span>' : money(r.price)}</td>
+        <td>${r.price == null ? "" : stock(r.available)}</td></tr>`).join("")}</table>`;
+  }));
+}
+
+$("#checkBtn").addEventListener("click", e => busy(e.target, async () => {
+  const out = $("#checkOut");
+  out.innerHTML = spinner("Checking every store…");
+  try {
+    const r = await api("/api/check", {});
+    const alerts = r.log.filter(l => l.startsWith("🔔"));
+    out.innerHTML = alerts.length ? msg("ok", "Texted you:<pre>" + esc(alerts.join("\n\n")) + "</pre>")
+                                  : msg("info", "Checked. No price drops or restocks since the last check.");
+    loadItems();
+  } catch (err) { out.innerHTML = msg("err", esc(err.message)); }
+}));
+
+// ---------------------------------------------------------------- search
+$("#searchForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const out = $("#searchOut");
+  busy(e.submitter, async () => {
+    out.innerHTML = spinner("Searching…");
+    try {
+      const r = await api("/api/search", {store: $("#sStore").value, query: $("#sQuery").value});
+      out.innerHTML = r.results.length ? `<table style="margin-top:10px">${r.results.map((p, i) => `<tr>
+          <td>${esc(p.title)}</td><td class="num">${money(p.price)}</td>
+          <td>${p.available ? '<span class="pill in">In stock</span>' : '<span class="pill out">Sold out</span>'}</td>
+          <td><button data-u="${i}">Check</button></td></tr>`).join("")}</table>`
+        : msg("info", "No results.");
+      out.querySelectorAll("[data-u]").forEach(b => b.addEventListener("click", () => {
+        $("#url").value = r.results[b.dataset.u].url;
+        window.scrollTo({top: 0, behavior: "smooth"});
+        $("#probeBtn").click();
+      }));
+    } catch (err) { out.innerHTML = msg("err", esc(err.message)); }
+  });
+});
+
+// ---------------------------------------------------------------- settings
+$("#every").addEventListener("change", async e => {
+  try {
+    const r = await api("/api/schedule", {every: e.target.value || null});
+    $("#setOut").innerHTML = msg("ok", esc(r.message));
+  } catch (err) { $("#setOut").innerHTML = msg("err", esc(err.message)); }
+});
+
+$("#testBtn").addEventListener("click", e => busy(e.target, async () => {
+  try {
+    const r = await api("/api/test-text", {});
+    $("#setOut").innerHTML = r.sent ? msg("ok", "Test text sent. Check your phone.")
+      : msg("err", r.phone ? "Messages couldn't send it. Open the Messages app on this Mac, make sure it's signed in, and allow PriceWatch to control it if macOS asks."
+                           : "Set ALERT_PHONE in .env first (see above).");
+  } catch (err) { $("#setOut").innerHTML = msg("err", esc(err.message)); }
+}));
+
+loadItems().catch(err => { $("#items").innerHTML = msg("err", esc(err.message)); });
+</script>
+</body>
+</html>

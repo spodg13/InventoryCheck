@@ -12,16 +12,7 @@ from twilio.rest import Client
 # ==========================================
 
 WATCHLIST = [
-    {
-        "store": "store.ussoccer.com",
-        "handle": "usasmz2604-mens-nike-usmnt-2026-stripes-stadium-jersey",
-        "size": "XL"
-    },
-    {
-        "store": "store.ussoccer.com",
-        "handle": "usasmz2604-mens-nike-usmnt-2026-stripes-stadium-jersey",
-        "size": "L"
-    },
+    
     {
         "store": "store.ussoccer.com",
         "handle": "usasmz2601-mens-nike-usmnt-2026-stars-stadium-jersey",
@@ -86,6 +77,7 @@ def send_alerts(message_body, subject="Stock Alert"):
     """Fires alerts to Twilio and Verizon simultaneously with distinct naming."""
     
     # --- Channel 1: Twilio API Text ---
+    """
     try:
         twilio_sms_runner = setup_twilio_client()
         twilio_sms_runner.messages.create(
@@ -96,7 +88,7 @@ def send_alerts(message_body, subject="Stock Alert"):
         print("📱 Twilio premium SMS dispatched successfully!")
     except Exception as e:
         print(f"❌ Twilio Error: {e}")
-
+    """
     # --- Channel 2: Verizon Gateway ---
     msg = MIMEText(message_body)
     msg["From"] = SENDER_EMAIL

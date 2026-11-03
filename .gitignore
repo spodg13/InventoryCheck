@@ -1,3 +1,9 @@
 .env
-.venv/
+# Virtual environment (.venv.nosync keeps it out of iCloud; .venv is a symlink to it)
+.venv
+.venv.nosync/
 __pycache__/
+PriceWatch/prices.db
+PriceWatch/state.json
+PriceWatch/logs/
+.DS_Store

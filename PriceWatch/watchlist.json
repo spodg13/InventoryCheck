@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "name": "WiiM Amp",
+      "size": null,
+      "target": null,
+      "urls": [
+        {
+          "url": "https://www.wiimhome.com/wiimamp/overview",
+          "method": "browser"
+        }
+      ]
+    },
+    {
+      "name": "Amp",
+      "size": null,
+      "target": null,
+      "urls": [
+        {
+          "url": "https://www.sonos.com/en-us/shop/amp",
+          "method": "http"
+        }
+      ]
+    }
+  ]
+}
