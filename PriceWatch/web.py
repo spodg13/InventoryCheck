@@ -23,6 +23,7 @@ from notify import send_text  # noqa: E402
 PAGE = HERE / "ui.html"
 # Logo files the page may load (a fixed list, so no other files can be requested)
 ASSETS = {"/icon.png": ("assets/icon.png", "image/png"),
+          "/favicon.ico": ("assets/icon.png", "image/png"),  # Safari asks for this on its own
           "/spodglabs.svg": ("assets/spodglabs.svg", "image/svg+xml")}
 
 
@@ -68,6 +69,7 @@ POST = {
     "/api/test-text": lambda b: {"sent": send_text("✅ Test message from your Mac"),
                                  "phone": bool(os.getenv("ALERT_PHONE"))},
     "/api/schedule": schedule,
+    "/api/settings": lambda b: {"settings": pw.save_settings(b), "every": pw.schedule_status()},
 }
 
 
@@ -92,7 +94,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, (HERE / path).read_bytes(), ctype)
         elif u.path == "/api/items":
             self._json({"items": pw.watchlist_status(), "every": pw.schedule_status(),
-                        "phone": bool(os.getenv("ALERT_PHONE"))})
+                        "phone": bool(os.getenv("ALERT_PHONE")),
+                        "settings": pw.load_settings()})
         elif u.path == "/api/history":
             self._json({"history": pw.history(parse_qs(u.query).get("name", [""])[0])})
         else:

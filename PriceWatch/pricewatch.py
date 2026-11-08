@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import plistlib
 import sqlite3
 import subprocess
@@ -46,7 +45,63 @@ LABEL = "com.pricewatch.check"
 PLIST = Path.home() / "Library/LaunchAgents" / f"{LABEL}.plist"
 # Always the project's .venv (a symlink to .venv.nosync, which iCloud doesn't sync)
 VENV_PYTHON = HERE.parent / ".venv" / "bin" / "python"
-DIGEST_HOUR = int(os.getenv("DIGEST_HOUR", "8"))
+
+# ================================================================ settings
+# Preferences (not secrets) live in settings.json and are edited on the page.
+# Private things - phone number, passwords, label - stay in .env.
+SETTINGS = HERE / "settings.json"
+WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+DEFAULT_SETTINGS = {
+    "summary": True,              # send the summary / "still running" text at all
+    "summary_cadence": "weekly",  # "weekly" or "daily"
+    "summary_day": "mon",         # weekday for weekly summaries
+    "summary_hour": 8,            # summary time, and when "once a day" checks run (0-23)
+    "fail_alert_after": 3,        # text when a store fails this many checks in a row (0 = never)
+}
+
+
+def load_settings() -> dict:
+    saved = json.loads(SETTINGS.read_text()) if SETTINGS.exists() else {}
+    return {**DEFAULT_SETTINGS, **{k: v for k, v in saved.items() if k in DEFAULT_SETTINGS}}
+
+
+def save_settings(new: dict) -> dict:
+    """Validate and save; raises ValueError on a bad value."""
+    s = load_settings()
+    if "summary" in new:
+        s["summary"] = bool(new["summary"])
+    if "summary_cadence" in new:
+        if new["summary_cadence"] not in ("weekly", "daily"):
+            raise ValueError("Summary must be weekly or daily.")
+        s["summary_cadence"] = new["summary_cadence"]
+    if "summary_day" in new:
+        day = str(new["summary_day"]).strip().lower()[:3]
+        if day not in WEEKDAYS:
+            raise ValueError("Summary day must be a weekday name.")
+        s["summary_day"] = day
+    if "summary_hour" in new:
+        hour = int(new["summary_hour"])
+        if not 0 <= hour <= 23:
+            raise ValueError("Summary hour must be 0-23.")
+        s["summary_hour"] = hour
+    if "fail_alert_after" in new:
+        n = int(new["fail_alert_after"])
+        if not 0 <= n <= 20:
+            raise ValueError("Failed-check count must be 0-20.")
+        s["fail_alert_after"] = n
+    SETTINGS.write_text(json.dumps(s, indent=2) + "\n")
+    # A "once a day" schedule runs at the summary hour, so move it along with the hour
+    if schedule_status() == DAILY:
+        install_schedule(DAILY)
+    return s
+
+
+def load_state() -> dict:
+    return json.loads(STATE.read_text()) if STATE.exists() else {}
+
+
+def save_state(state: dict) -> None:
+    STATE.write_text(json.dumps(state, indent=2) + "\n")
 
 
 # ================================================================ storage
@@ -184,6 +239,8 @@ def search_shopify(store: str, query: str) -> List[dict]:
 def run_check(dry_run: bool = False, log: Callable[[str], None] = print) -> None:
     """Check every tracked URL once and text any alerts. This is what the schedule runs."""
     data = load_list()
+    settings = load_settings()
+    state = load_state()
     con = db()
     changed = False
     for it in data["items"]:
@@ -194,7 +251,9 @@ def run_check(dry_run: bool = False, log: Callable[[str], None] = print) -> None
             if not res:
                 log(f"⚠️  {it['name']} @ {store}: could not read price")
                 record(con, it["name"], u["url"], None, None, None, None)
+                track_failures(con, state, settings, it["name"], u["url"], False, dry_run, log)
                 continue
+            track_failures(con, state, settings, it["name"], u["url"], True, dry_run, log)
             if res["method"] != u.get("method"):
                 u["method"] = res["method"]
                 changed = True
@@ -229,16 +288,60 @@ def run_check(dry_run: bool = False, log: Callable[[str], None] = print) -> None
     con.commit()
     if changed:
         save_list(data)
-    maybe_digest(con, data, dry_run)
+    maybe_digest(con, data, state, settings, dry_run)
+    save_state(state)
 
 
-def maybe_digest(con, data, dry_run: bool) -> None:
-    """Once a day after DIGEST_HOUR: a summary text, which doubles as 'still running' heartbeat."""
-    state = json.loads(STATE.read_text()) if STATE.exists() else {}
-    today = datetime.now().strftime("%Y-%m-%d")
-    if datetime.now().hour < DIGEST_HOUR or state.get("digest") == today or not data["items"]:
+def track_failures(con, state, settings, item: str, url: str, ok: bool,
+                   dry_run: bool, log: Callable[[str], None]) -> None:
+    """Text once when a store fails N checks in a row, and once more when it recovers."""
+    key = f"{item}|{url}"
+    alerted = state.setdefault("fail_alerted", [])
+    store = store_name(url)
+    if ok:
+        if key in alerted:
+            alerted.remove(key)
+            msg = f"✅ {item} @ {store} is readable again."
+            log(msg)
+            send_text(msg, dry_run=dry_run)
         return
-    lines = ["☀️ Daily summary"]
+    n = settings["fail_alert_after"]
+    if not n or key in alerted:
+        return
+    recent = con.execute("SELECT price FROM obs WHERE item=? AND url=? ORDER BY rowid DESC LIMIT ?",
+                         (item, url, n)).fetchall()
+    if len(recent) < n or any(r[0] is not None for r in recent):
+        return
+    good = last_obs(con, item, url)
+    msg = (f"⚠️ Can't read {item} @ {store}\n"
+           f"The last {n} checks failed. The store may have changed its page or started blocking "
+           f"price checks. Paste the link on the PriceWatch page to test it.")
+    if good:
+        msg += f"\nLast price seen: ${good[0]:.2f} on {datetime.fromisoformat(good[2]):%b %-d}"
+    log(msg)
+    send_text(msg, dry_run=dry_run)
+    alerted.append(key)
+
+
+def summary_due(now: datetime, last: Optional[str], s: dict) -> bool:
+    """Weekly on the chosen day or daily, after the summary hour; off if turned off."""
+    if not s["summary"] or now.hour < s["summary_hour"] or last == now.strftime("%Y-%m-%d"):
+        return False
+    if s["summary_cadence"] == "daily" or not last:
+        return True
+    days_since = (now.date() - datetime.strptime(last, "%Y-%m-%d").date()).days
+    # On the chosen weekday, or catch up if the Mac was off/asleep that whole day
+    return now.weekday() == WEEKDAYS.index(s["summary_day"]) or days_since >= 8
+
+
+def maybe_digest(con, data, state: dict, settings: dict, dry_run: bool) -> None:
+    """The summary text, which doubles as a 'still running' heartbeat."""
+    now = datetime.now()
+    if not data["items"] or not summary_due(now, state.get("digest"), settings):
+        return
+    weekly = settings["summary_cadence"] == "weekly"
+    lines = ["☀️ Weekly summary" if weekly else "☀️ Daily summary"]
+    today = now.strftime("%Y-%m-%d")
     for it in watchlist_status():
         buyable = [s for s in it["stores"] if s["price"] is not None and s["available"] is not False]
         best = min(buyable, key=lambda s: s["price"]) if buyable else None
@@ -249,19 +352,19 @@ def maybe_digest(con, data, dry_run: bool) -> None:
         lines.append(line)
     send_text("\n".join(lines), dry_run=dry_run)
     state["digest"] = today
-    STATE.write_text(json.dumps(state))
 
 
 # ================================================================ schedule (launchd)
-DAILY = 1440  # minutes; "once a day" runs at DIGEST_HOUR instead of every 24h from install
+DAILY = 1440  # minutes; "once a day" runs at the summary hour instead of every 24h from install
 
 
 def install_schedule(every: int) -> str:
     LOGS.mkdir(exist_ok=True)
     if every >= DAILY:
         # A fixed time of day; launchd runs it on wake if the Mac was asleep then
-        timing = {"StartCalendarInterval": {"Hour": DIGEST_HOUR, "Minute": 0}}
-        when = f"once a day at {datetime.now().replace(hour=DIGEST_HOUR, minute=0):%-I:%M %p}"
+        hour = load_settings()["summary_hour"]
+        timing = {"StartCalendarInterval": {"Hour": hour, "Minute": 0}}
+        when = f"once a day at {datetime.now().replace(hour=hour, minute=0):%-I:%M %p}"
     else:
         timing = {"StartInterval": every * 60}
         when = f"every {every} minutes"
@@ -394,7 +497,7 @@ def main() -> None:
         fn=lambda a: send_text("✅ Test message from your Mac"))
     p = sub.add_parser("install", help="run `check` on a schedule via launchd")
     p.add_argument("--every", type=int, default=30,
-                   help="minutes between checks (1440 = once a day at DIGEST_HOUR)")
+                   help="minutes between checks (1440 = once a day at the summary hour)")
     p.set_defaults(fn=lambda a: print("✅ " + install_schedule(a.every)))
     sub.add_parser("uninstall").set_defaults(fn=lambda a: print(uninstall_schedule()))
 

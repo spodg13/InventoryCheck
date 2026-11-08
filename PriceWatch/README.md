@@ -38,8 +38,14 @@ Every text starts with a `🧪 SpodgLabs PriceWatch` line so it stands out in yo
 To change it, set `ALERT_LABEL=...` in `.env`; to turn it off, set `ALERT_LABEL=` (empty). Then run `prices restart`.
 
 ## What triggers a text
-Price drop · price reaches your target · your size back in stock · a summary each morning after 8 AM
-(set `DIGEST_HOUR` in `.env` to change it). The morning summary also confirms the tracker is still running.
+- A price drops, reaches your target, or your size comes back in stock (sent right away)
+- A store can't be read several checks in a row, and again when it's working ("Problem alerts")
+- A summary of each item's best price, which also confirms PriceWatch is still running.
+  If the Mac is off on summary day, it arrives at the next check.
+
+Set the summary (on/off, weekly or daily, day, time) and the problem alerts in the
+**Texts & schedule** section of the page. They're saved in `settings.json` and apply on the next
+check, with no restart needed. `.env` holds only private things: `ALERT_PHONE` and `ALERT_LABEL`.
 
 ## Command line (same features)
 `.venv/bin/python PriceWatch/pricewatch.py probe|add|search|list|check|history|remove|test-text|install|uninstall`

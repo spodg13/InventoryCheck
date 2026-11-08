@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PriceWatch</title>
-<link rel="icon" type="image/png" href="/icon.png">
-<link rel="apple-touch-icon" href="/icon.png">
+<link rel="icon" type="image/png" href="/icon.png?v=2">
+<link rel="apple-touch-icon" href="/icon.png?v=2">
 <style>
   :root {
     --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7280; --line: #e5e7eb;
@@ -26,6 +26,8 @@
   h1 { font-size: 24px; margin: 0 0 4px; }
   h2 { font-size: 17px; margin: 0 0 12px; }
   .sub { color: var(--muted); margin: 0 0 20px; }
+  h3.sect { font-size: 14px; margin: 20px 0 4px; padding-top: 14px; border-top: 1px solid var(--line); }
+  label.off { opacity: .45; }
   .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
   .brand h1 { margin: 0; line-height: 1.1; }
   .brand .by { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
@@ -138,14 +140,44 @@
           <option value="30">Every 30 minutes</option>
           <option value="60">Every hour</option>
           <option value="180">Every 3 hours</option>
-          <option value="1440">Once a day (8 AM)</option>
+          <option value="1440" id="dailyOpt">Once a day</option>
         </select>
       </label>
       <button id="testBtn" style="align-self:flex-end">Send a test text</button>
     </div>
+
+    <h3 class="sect">Summary text</h3>
+    <p class="muted small" style="margin:0 0 8px">Lists each item's best price. It also lets you know PriceWatch is still running.</p>
+    <div class="row" id="summaryRow">
+      <label>Summary
+        <select id="sumOn"><option value="on">On</option><option value="off">Off</option></select>
+      </label>
+      <label class="sumOpt">How often
+        <select id="sumCad"><option value="weekly">Weekly</option><option value="daily">Daily</option></select>
+      </label>
+      <label class="sumOpt" id="sumDayLbl">Day
+        <select id="sumDay">
+          <option value="mon">Monday</option><option value="tue">Tuesday</option><option value="wed">Wednesday</option>
+          <option value="thu">Thursday</option><option value="fri">Friday</option><option value="sat">Saturday</option>
+          <option value="sun">Sunday</option>
+        </select>
+      </label>
+      <label class="sumOpt">Time <select id="sumHour"></select></label>
+    </div>
+
+    <h3 class="sect">Problem alerts</h3>
+    <div class="row">
+      <label>Text me when a store can't be read
+        <select id="failN">
+          <option value="2">2 checks in a row</option>
+          <option value="3">3 checks in a row</option>
+          <option value="5">5 checks in a row</option>
+          <option value="0">Never</option>
+        </select>
+      </label>
+    </div>
     <div id="setOut"></div>
-    <p class="muted small" style="margin-bottom:0">You'll get a text when a price drops, hits your target, or your size comes back in stock,
-      plus one summary each morning. Automatic checks keep running when this page is closed.</p>
+    <p class="muted small" style="margin-bottom:0" id="setSummary"></p>
   </section>
 </main>
 
@@ -242,6 +274,7 @@ function renderProbe() {
 // ---------------------------------------------------------------- watchlist
 async function loadItems() {
   const d = await api("/api/items");
+  showSettings(d.settings);
   $("#every").value = d.every ? String(d.every) : "";
   if (d.every && !$("#every").value) {  // a custom interval set from the command line
     $("#every").insertAdjacentHTML("beforeend", `<option value="${d.every}">Every ${d.every} minutes</option>`);
@@ -324,6 +357,46 @@ $("#searchForm").addEventListener("submit", e => {
 });
 
 // ---------------------------------------------------------------- settings
+const hourName = h => new Date(2000, 0, 1, h).toLocaleTimeString([], {hour: "numeric"});
+const DAY_NAMES = {mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday"};
+for (let h = 5; h <= 22; h++) $("#sumHour").insertAdjacentHTML("beforeend", `<option value="${h}">${hourName(h)}</option>`);
+
+function showSettings(s) {
+  if (![...$("#sumHour").options].some(o => o.value == s.summary_hour))  // an hour outside the list
+    $("#sumHour").insertAdjacentHTML("beforeend", `<option value="${s.summary_hour}">${hourName(s.summary_hour)}</option>`);
+  $("#sumOn").value = s.summary ? "on" : "off";
+  $("#sumCad").value = s.summary_cadence;
+  $("#sumDay").value = s.summary_day;
+  $("#sumHour").value = String(s.summary_hour);
+  if (![...$("#failN").options].some(o => o.value == s.fail_alert_after))
+    $("#failN").insertAdjacentHTML("beforeend", `<option value="${s.fail_alert_after}">${s.fail_alert_after} checks in a row</option>`);
+  $("#failN").value = String(s.fail_alert_after);
+  // Grey out choices that don't apply
+  document.querySelectorAll(".sumOpt").forEach(l => l.classList.toggle("off", !s.summary));
+  $("#sumDayLbl").classList.toggle("off", !s.summary || s.summary_cadence === "daily");
+  $("#sumCad").disabled = $("#sumHour").disabled = !s.summary;
+  $("#sumDay").disabled = !s.summary || s.summary_cadence === "daily";
+  $("#dailyOpt").textContent = `Once a day (${hourName(s.summary_hour)})`;
+  // Plain-English recap of what texts to expect
+  const when = !s.summary ? "No summary text."
+    : s.summary_cadence === "daily" ? `A summary every day after ${hourName(s.summary_hour)}.`
+    : `A summary every ${DAY_NAMES[s.summary_day]} after ${hourName(s.summary_hour)}.`;
+  const fail = s.fail_alert_after ? ` A text if a store can't be read ${s.fail_alert_after} checks in a row, and another when it's working again.` : "";
+  $("#setSummary").textContent = `You'll get a text when a price drops, hits your target, or your size comes back in stock. ${when}${fail} Automatic checks keep running when this page is closed.`;
+}
+
+async function saveSettings() {
+  try {
+    const r = await api("/api/settings", {
+      summary: $("#sumOn").value === "on", summary_cadence: $("#sumCad").value,
+      summary_day: $("#sumDay").value, summary_hour: Number($("#sumHour").value),
+      fail_alert_after: Number($("#failN").value)});
+    showSettings(r.settings);
+    $("#setOut").innerHTML = msg("ok", "Saved.");
+  } catch (err) { $("#setOut").innerHTML = msg("err", esc(err.message)); }
+}
+["#sumOn", "#sumCad", "#sumDay", "#sumHour", "#failN"].forEach(id => $(id).addEventListener("change", saveSettings));
+
 $("#every").addEventListener("change", async e => {
   try {
     const r = await api("/api/schedule", {every: e.target.value || null});
