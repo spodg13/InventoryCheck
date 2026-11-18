@@ -47,5 +47,15 @@ Set the summary (on/off, weekly or daily, day, time) and the problem alerts in t
 **Texts & schedule** section of the page. They're saved in `settings.json` and apply on the next
 check, with no restart needed. `.env` holds only private things: `ALERT_PHONE` and `ALERT_LABEL`.
 
+## Checking while the Mac is asleep
+A sleeping Mac doesn't run the daily check; it runs once the Mac wakes. To have the Mac wake itself
+for it (like Task Scheduler's "wake the computer to run this task"), run this once in Terminal:
+```
+sudo pmset repeat wakeorpoweron MTWRFSU 07:59:00
+```
+The check holds the Mac awake until it finishes (`caffeinate`), then the Mac goes back to sleep.
+If you change the summary time on the page, change `07:59:00` to one minute before it.
+`pmset -g sched` shows the wake; `sudo pmset repeat cancel` removes it.
+
 ## Command line (same features)
 `.venv/bin/python PriceWatch/pricewatch.py probe|add|search|list|check|history|remove|test-text|install|uninstall`

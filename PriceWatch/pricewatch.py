@@ -371,7 +371,10 @@ def install_schedule(every: int) -> str:
         when = f"every {every} minutes"
     plist = {
         "Label": LABEL,
-        "ProgramArguments": [str(VENV_PYTHON), str(HERE / "pricewatch.py"), "check"],
+        # caffeinate -i holds the Mac awake until the check finishes, so a scheduled wake
+        # (pmset) can't drop back to sleep partway through it
+        "ProgramArguments": ["/usr/bin/caffeinate", "-i",
+                             str(VENV_PYTHON), str(HERE / "pricewatch.py"), "check"],
         **timing,
         "RunAtLoad": True,
         "WorkingDirectory": str(HERE),
@@ -407,7 +410,8 @@ def schedule_is_ours() -> bool:
         return False
     with open(PLIST, "rb") as f:
         args = plistlib.load(f).get("ProgramArguments", [])
-    return len(args) > 1 and Path(args[1]).resolve() == (HERE / "pricewatch.py").resolve()
+    ours = (HERE / "pricewatch.py").resolve()
+    return any(a.endswith("pricewatch.py") and Path(a).resolve() == ours for a in args)
 
 
 # ================================================================ command line
