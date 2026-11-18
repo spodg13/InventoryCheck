@@ -25,7 +25,7 @@ end run
 """
 
 
-DEFAULT_LABEL = "🧪 SpodgLabs PriceWatch"
+DEFAULT_LABEL = "🧪 SPODG Labs PriceWatch"
 
 
 def send_text(message: str, dry_run: bool = False) -> bool:

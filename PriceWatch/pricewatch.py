@@ -91,7 +91,8 @@ def save_settings(new: dict) -> dict:
         s["fail_alert_after"] = n
     SETTINGS.write_text(json.dumps(s, indent=2) + "\n")
     # A "once a day" schedule runs at the summary hour, so move it along with the hour
-    if schedule_status() == DAILY:
+    # Only if the schedule runs this copy: a test copy elsewhere must never re-point the real one
+    if schedule_status() == DAILY and schedule_is_ours():
         install_schedule(DAILY)
     return s
 
@@ -398,6 +399,15 @@ def schedule_status() -> Optional[int]:
     with open(PLIST, "rb") as f:
         p = plistlib.load(f)
     return DAILY if "StartCalendarInterval" in p else p.get("StartInterval", 0) // 60
+
+
+def schedule_is_ours() -> bool:
+    """True if the installed schedule runs this copy of pricewatch.py."""
+    if not PLIST.exists():
+        return False
+    with open(PLIST, "rb") as f:
+        args = plistlib.load(f).get("ProgramArguments", [])
+    return len(args) > 1 and Path(args[1]).resolve() == (HERE / "pricewatch.py").resolve()
 
 
 # ================================================================ command line

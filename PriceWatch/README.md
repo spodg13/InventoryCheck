@@ -34,7 +34,7 @@ symlink to it. If the environment is missing, `start.sh` rebuilds it.
 - Stores that block automated price checks (Amazon, Walmart, Target, Dick's usually do) say so when you
   paste a link. For Amazon, use camelcamelcamel.com's own alerts.
 
-Every text starts with a `🧪 SpodgLabs PriceWatch` line so it stands out in your Messages thread.
+Every text starts with a `🧪 SPODG Labs PriceWatch` line so it stands out in your Messages thread.
 To change it, set `ALERT_LABEL=...` in `.env`; to turn it off, set `ALERT_LABEL=` (empty). Then run `prices restart`.
 
 ## What triggers a text
