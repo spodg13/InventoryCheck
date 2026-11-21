@@ -43,6 +43,9 @@ STATE = HERE / "state.json"
 LOGS = HERE / "logs"
 LABEL = "com.pricewatch.check"
 PLIST = Path.home() / "Library/LaunchAgents" / f"{LABEL}.plist"
+# Starts the page at login while automatic checks are on
+WEB_LABEL = "com.pricewatch.web"
+WEB_PLIST = Path.home() / "Library/LaunchAgents" / f"{WEB_LABEL}.plist"
 # Always the project's .venv (a symlink to .venv.nosync, which iCloud doesn't sync)
 VENV_PYTHON = HERE.parent / ".venv" / "bin" / "python"
 
@@ -386,13 +389,38 @@ def install_schedule(every: int) -> str:
     with open(PLIST, "wb") as f:
         plistlib.dump(plist, f)
     subprocess.run(["launchctl", "load", str(PLIST)], check=True, capture_output=True)
+    install_page_autostart()
     return f"Checking {when}. Log: {LOGS / 'pricewatch.log'}"
 
 
 def uninstall_schedule() -> str:
     subprocess.run(["launchctl", "unload", str(PLIST)], capture_output=True)
     PLIST.unlink(missing_ok=True)
+    remove_page_autostart()
     return "Schedule removed."
+
+
+def install_page_autostart() -> None:
+    """Start the page at each login (only at login: `prices stop` still stops it for the session).
+    It isn't started now; the caller is often the page itself, already running."""
+    plist = {
+        "Label": WEB_LABEL,
+        # Same command line as start.sh, so `prices` / `prices stop` recognise this copy too
+        "ProgramArguments": [str(VENV_PYTHON), "PriceWatch/web.py"],
+        "WorkingDirectory": str(HERE.parent),
+        "RunAtLoad": True,
+        "StandardOutPath": str(Path.home() / "Library/Logs/pricewatch-web.log"),
+        "StandardErrorPath": str(Path.home() / "Library/Logs/pricewatch-web.log"),
+    }
+    WEB_PLIST.parent.mkdir(parents=True, exist_ok=True)
+    with open(WEB_PLIST, "wb") as f:
+        plistlib.dump(plist, f)
+
+
+def remove_page_autostart() -> None:
+    """Don't start the page at the next login. Not unloaded now: that would stop the page
+    in the middle of the click that turned checks off."""
+    WEB_PLIST.unlink(missing_ok=True)
 
 
 def schedule_status() -> Optional[int]:

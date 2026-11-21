@@ -4,14 +4,11 @@ Track the price of any product, plus per-size stock when the store shows it.
 Alerts arrive as texts sent from this Mac's Messages app.
 
 ## Start
-Run `./start.sh` in the InventoryCheck folder (or `prices`, once the alias below is added).
+Run `prices` in Terminal (or `./start.sh` in the InventoryCheck folder).
 It opens **http://pricewatch.localhost:8503** in your browser.
 Other commands: `prices restart` (after code changes), `prices stop`, `prices log`.
-
-Shortcut: add this line to `~/.zshrc`:
-```
-alias prices='"/Users/darrylgould/Library/Mobile Documents/com~apple~CloudDocs/Coding/InventoryCheck/start.sh"'
-```
+While automatic checks are on, the page also starts by itself at login.
+Everyday tasks, including how to pause the checks, are in the cheat sheet: [HOW-TO.md](../HOW-TO.md).
 
 The Python environment lives in `.venv.nosync`, which iCloud Drive doesn't sync, and `.venv` is a
 symlink to it. If the environment is missing, `start.sh` rebuilds it.
@@ -34,7 +31,7 @@ symlink to it. If the environment is missing, `start.sh` rebuilds it.
 - Stores that block automated price checks (Amazon, Walmart, Target, Dick's usually do) say so when you
   paste a link. For Amazon, use camelcamelcamel.com's own alerts.
 
-Every text starts with a `🧪 SPODG Labs PriceWatch` line so it stands out in your Messages thread.
+Every text starts with a label line (default `🧪 SPODG Labs PriceWatch`) so it stands out in your Messages thread.
 To change it, set `ALERT_LABEL=...` in `.env`; to turn it off, set `ALERT_LABEL=` (empty). Then run `prices restart`.
 
 ## What triggers a text
